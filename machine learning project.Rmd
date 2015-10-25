@@ -1,0 +1,116 @@
+---
+title: "machine learning project"
+output: html_document
+---
+
+###Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+###Data
+First we must download and import our data.
+
+The training data for this project are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+```{r}
+# Loading the training data set 
+training <- read.csv("C:/Users/alex/downloads/pml-training.csv", na.strings=c("NA","#DIV/0!", ""))
+
+# Loading the testing data set 
+testing <- read.csv('C:/Users/alex/downloads/pml-testing.csv', na.strings=c("NA","#DIV/0!", ""))
+
+```
+
+
+Now for a first look at our data
+```{r}
+dim(training)
+```
+It can be seen that training data has 19622 observations and 160 features
+
+we then examine the distribution of the five measured stances A,B,C,D,E
+```{r}
+table(training$classe)
+```
+
+###Preprocessing
+
+Partitioning the training set
+
+First step is to separate our training data into a) a training set and b) a validation set so that our model may be validated.
+
+```{r}
+library(caret)
+```
+
+```{r}
+set.seed(1647465)
+trainset <- createDataPartition(training$classe, p = 0.8, list = FALSE)
+Training <- training[trainset, ]
+Validation <- training[-trainset, ]
+```
+###Selecting Features
+
+it is now necessary to clean up
+1)Near zero variance features
+2)Columns with missing values
+3)Descriptive fields
+
+```{r}
+# exclude near zero variance features
+nzvcol <- nearZeroVar(Training)
+Training <- Training[, -nzvcol]
+
+# exclude columns with m40% ore more missing values exclude descriptive
+# columns like name etc
+cntlength <- sapply(Training, function(x) {
+    sum(!(is.na(x) | x == ""))
+})
+nullcol <- names(cntlength[cntlength < 0.6 * length(Training$classe)])
+descriptcol <- c("X", "user_name", "raw_timestamp_part_1", "raw_timestamp_part_2", 
+    "cvtd_timestamp", "new_window", "num_window")
+excludecols <- c(descriptcol, nullcol)
+Training <- Training[, !names(Training) %in% excludecols]
+```
+
+##Training Model
+Using Model Random Forest
+
+```{r}
+library(randomForest)
+```
+
+```{r}
+rfModel <- randomForest(classe ~ ., data = Training, importance = TRUE, ntrees = 10)
+```
+##Validating our Model
+Testing model on Training & Cross Validation set
+###Accuracy - Training Set
+
+##Accuracy - Training set
+
+```{r}
+ptraining <- predict(rfModel, Training)
+print(confusionMatrix(ptraining, Training$classe))
+```
+###Accuracy - Validation Set
+```{r}
+pvalidation <- predict(rfModel, Validation)
+print(confusionMatrix(pvalidation, Validation$classe))
+```
+The model performs well - The cross validation accuracy is 99.5% and the out-of-sample error is therefore 0.5%.
+
+###Prediction - Test Set
+```{r}
+ptest <- predict(rfModel, testing)
+ptest
+```
+
